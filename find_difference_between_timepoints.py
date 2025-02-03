@@ -18,14 +18,32 @@ csv_data = []  # Collect data in memory before writing to the file
 
 print(f">>> Comparing collections '{collection_before.name}' and '{collection_after.name}' <<<")
 
+# Track all document IDs from both collections
+before_ids = set(doc["_id"] for doc in collection_before.find({}, {"_id": 1}))
+after_ids = set(doc["_id"] for doc in collection_after.find({}, {"_id": 1}))
+
+# Find documents that were deleted
+deleted_ids = before_ids - after_ids
+# Find documents that were created
+created_ids = after_ids - before_ids
+
+# Handle deleted documents
+for doc_id in deleted_ids:
+    print(f"Document with _id {doc_id} was deleted.")
+    csv_data.append([collection_before.name, collection_after.name, doc_id, "N/A", "Document deleted", "N/A"])
+
+# Handle created documents
+for doc_id in created_ids:
+    print(f"Document with _id {doc_id} was created.")
+    csv_data.append([collection_before.name, collection_after.name, doc_id, "N/A", "N/A", "Document created"])
+
+# Compare existing documents
 for doc_before in collection_before.find():
     doc_id = doc_before["_id"]
     doc_after = collection_after.find_one({"_id": doc_id})
 
     if not doc_after:
-        print(f"Document with _id {doc_id} exists in old collection but not in new collection.")
-        csv_data.append([collection_before.name, collection_after.name, doc_id, "N/A", "Document missing", "N/A"])
-        continue
+        continue  # Skip since it's already handled in the deleted section
 
     # Compare using DeepDiff
     diff = DeepDiff(doc_before, doc_after, verbose_level=2)
